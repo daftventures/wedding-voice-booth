@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Voice Booth">
+<meta name="theme-color" content="#1a1310">
+<title>Voice Guestbook</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Jost:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    min-height: 100vh;
+    min-height: 100dvh;
+    background: #1a1310;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Jost', sans-serif;
+    padding: 2rem 1rem;
+    /* Prevent text selection on long-press (Android) */
+    -webkit-user-select: none;
+    user-select: none;
+    /* Prevent overscroll bounce */
+    overscroll-behavior: none;
+  }
+
+  .ornament {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 28px;
+    color: #c9a96e;
+    letter-spacing: 8px;
+    margin-bottom: 0.5rem;
+  }
+
+  h1 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(36px, 6vw, 56px);
+    font-weight: 300;
+    font-style: italic;
+    color: #f0e6d3;
+    text-align: center;
+    line-height: 1.1;
+  }
+
+  .subtitle {
+    font-size: 13px;
+    font-weight: 300;
+    color: #8a7560;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-top: 0.6rem;
+  }
+
+  .divider {
+    width: 60px;
+    height: 1px;
+    background: linear-gradient(to right, transparent, #c9a96e, transparent);
+    margin: 1.5rem auto;
+  }
+
+  #instruction {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 18px;
+    font-style: italic;
+    color: #a08c70;
+    text-align: center;
+    margin-bottom: 2.5rem;
+    min-height: 28px;
+    padding: 0 1rem;
+  }
+
+  .record-btn {
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    border: 1px solid #c9a96e55;
+    background: transparent;
+    cursor: pointer;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+    outline: none;
+    /* Remove Android tap highlight */
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  .record-btn::before {
+    content: '';
+    position: absolute;
+    inset: -8px;
+    border-radius: 50%;
+    border: 1px solid #c9a96e22;
+    transition: all 0.3s;
+  }
+
+  .record-btn:active::before { inset: -14px; border-color: #c9a96e44; }
+
+  .record-btn.recording {
+    border-color: #c9a96e;
+    animation: pulse-ring 1.5s ease-out infinite;
+  }
+
+  @keyframes pulse-ring {
+    0%   { box-shadow: 0 0 0 0 #c9a96e44; }
+    70%  { box-shadow: 0 0 0 24px transparent; }
+    100% { box-shadow: 0 0 0 0 transparent; }
+  }
+
+  .record-inner {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: #c9a96e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+  }
+
+  .record-btn.recording .record-inner {
+    border-radius: 16px;
+    width: 52px;
+    height: 52px;
+    background: #d4b07a;
+  }
+
+  .mic-icon { width: 32px; height: 32px; color: #1a1310; }
+  .stop-shape { width: 24px; height: 24px; background: #1a1310; border-radius: 3px; }
+
+  #timer {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 42px;
+    font-weight: 300;
+    color: #c9a96e;
+    margin-top: 1.5rem;
+    letter-spacing: 4px;
+    min-height: 52px;
+    visibility: hidden;
+    transition: color 0.5s;
+  }
+
+  #timer.visible { visibility: visible; }
+  #timer.warning { color: #d4785a; }
+
+  .progress-wrap {
+    width: 220px;
+    margin-top: 8px;
+    visibility: hidden;
+  }
+
+  .progress-wrap.visible { visibility: visible; }
+
+  .progress-track {
+    width: 100%;
+    height: 2px;
+    background: #2e2018;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    width: 0%;
+    background: #c9a96e;
+    border-radius: 2px;
+    transition: width 1s linear, background 0.5s;
+  }
+
+  .progress-fill.warning { background: #d4785a; }
+
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 5px;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    color: #4a3a2a;
+  }
+
+  .progress-label.warning { color: #7a4030; }
+
+  .waveform {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    height: 40px;
+    margin-top: 1rem;
+    visibility: hidden;
+  }
+
+  .waveform.visible { visibility: visible; }
+
+  .wave-bar {
+    width: 3px;
+    background: #c9a96e;
+    border-radius: 2px;
+    height: 4px;
+    transition: height 0.1s;
+  }
+
+  .post-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    margin-top: 2rem;
+    visibility: hidden;
+  }
+
+  .post-controls.visible { visibility: visible; }
+
+  .btn-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .btn {
+    font-family: 'Jost', sans-serif;
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    padding: 12px 24px;
+    border-radius: 40px;
+    border: 1px solid;
+    cursor: pointer;
+    transition: all 0.2s;
+    outline: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    /* Android tap fix */
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    /* Minimum touch target for Android */
+    min-height: 48px;
+  }
+
+  .btn-play {
+    background: transparent;
+    border-color: #4a3a2a;
+    color: #8a7560;
+  }
+  .btn-play:active { border-color: #8a7560; color: #a08c70; }
+
+  .btn-save {
+    background: #c9a96e;
+    border-color: #c9a96e;
+    color: #1a1310;
+  }
+  .btn-save:active { background: #d4b07a; border-color: #d4b07a; }
+
+  .btn-redo {
+    background: transparent;
+    border-color: #3a2a1a;
+    color: #6b5540;
+    font-size: 11px;
+    padding: 8px 18px;
+  }
+  .btn-redo:active { border-color: #6b5540; color: #8a7560; }
+
+  #savedMsg {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 20px;
+    font-style: italic;
+    color: #c9a96e;
+    text-align: center;
+    margin-top: 2rem;
+    min-height: 28px;
+    visibility: hidden;
+    padding: 0 1rem;
+  }
+
+  #savedMsg.visible { visibility: visible; }
+
+  .count-badge {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 13px;
+    color: #4a3a2a;
+    letter-spacing: 2px;
+  }
+
+  .count-badge span {
+    color: #c9a96e;
+    font-size: 18px;
+  }
+
+  /* Android share/save toast */
+  #toast {
+    position: fixed;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: #2a1f15;
+    border: 1px solid #c9a96e44;
+    color: #c9a96e;
+    font-family: 'Jost', sans-serif;
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 14px 24px;
+    border-radius: 40px;
+    transition: transform 0.4s cubic-bezier(.22,1,.36,1), opacity 0.4s;
+    opacity: 0;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 100;
+  }
+
+  #toast.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+
+  /* Install prompt banner */
+  #installBanner {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #2a1f15;
+    border-top: 1px solid #c9a96e33;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    z-index: 200;
+    transform: translateY(100%);
+    transition: transform 0.4s cubic-bezier(.22,1,.36,1);
+  }
+
+  #installBanner.show { transform: translateY(0); }
+
+  #installBanner p {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 15px;
+    font-style: italic;
+    color: #a08c70;
+    flex: 1;
+  }
+
+  .banner-btn {
+    font-family: 'Jost', sans-serif;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    border: none;
+    border-radius: 30px;
+    padding: 10px 18px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  .banner-install { background: #c9a96e; color: #1a1310; }
+  .banner-dismiss { background: transparent; color: #4a3a2a; }
+</style>
+</head>
+<body>
+
+<div class="count-badge" id="countBadge" style="display:none">
+  <span id="count">0</span> saved
+</div>
+
+<div class="ornament">✦ ✦ ✦</div>
+<h1>Leave a<br>Voice Message</h1>
+<p class="subtitle">Wedding Guestbook</p>
+<div class="divider"></div>
+
+<p id="instruction">Press to start recording your message</p>
+
+<button class="record-btn" id="recordBtn" aria-label="Start recording">
+  <div class="record-inner">
+    <svg id="micIcon" class="mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <rect x="9" y="2" width="6" height="11" rx="3"/>
+      <path d="M5 10a7 7 0 0 0 14 0"/>
+      <line x1="12" y1="19" x2="12" y2="22"/>
+      <line x1="8" y1="22" x2="16" y2="22"/>
+    </svg>
+    <div id="stopShape" class="stop-shape" style="display:none"></div>
+  </div>
+</button>
+
+<div id="timer">0:00</div>
+
+<div class="progress-wrap" id="progressWrap">
+  <div class="progress-track">
+    <div class="progress-fill" id="progressFill"></div>
+  </div>
+  <div class="progress-label" id="progressLabel">
+    <span id="progressElapsed">0:00</span>
+    <span id="progressRemain"></span>
+  </div>
+</div>
+
+<div class="waveform" id="waveform">
+  <div class="wave-bar" id="b1"></div><div class="wave-bar" id="b2"></div>
+  <div class="wave-bar" id="b3"></div><div class="wave-bar" id="b4"></div>
+  <div class="wave-bar" id="b5"></div><div class="wave-bar" id="b6"></div>
+  <div class="wave-bar" id="b7"></div><div class="wave-bar" id="b8"></div>
+  <div class="wave-bar" id="b9"></div><div class="wave-bar" id="b10"></div>
+  <div class="wave-bar" id="b11"></div><div class="wave-bar" id="b12"></div>
+</div>
+
+<div class="post-controls" id="postControls">
+  <div class="btn-row">
+    <button class="btn btn-play" id="playBtn" aria-label="Play back recording">
+      <svg id="playIcon" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      <svg id="pauseIcon" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="display:none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+      <span id="playLabel">Play back</span>
+    </button>
+    <button class="btn btn-save" id="saveBtn" aria-label="Save message">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Save message
+    </button>
+  </div>
+  <button class="btn btn-redo" id="redoBtn">↩ Record again</button>
+</div>
+
+<div id="savedMsg">Thank you — your words are a gift ✦</div>
+
+<audio id="audioEl"></audio>
+
+<!-- Toast notification -->
+<div id="toast"></div>
+
+<!-- PWA install banner -->
+<div id="installBanner">
+  <p>Add to your home screen for the best experience</p>
+  <button class="banner-btn banner-dismiss" id="bannerDismiss">Later</button>
+  <button class="banner-btn banner-install" id="bannerInstall">Install</button>
+</div>
+
+<script>
+  // ═══════════════════════════════════════════════════════════════
+  // CONFIGURATION
+  // ═══════════════════════════════════════════════════════════════
+  const MAX_SECONDS = 300;          // 5 minutes max recording
+  const FILENAME_PREFIX = 'message_'; // Prefix for saved files
+
+  // ═══════════════════════════════════════════════════════════════
+  // ANDROID SAVE STRATEGY
+  // Android WebView / Chrome blocks <a download> for blobs in some
+  // contexts. We try three approaches in order:
+  //   1. File System Access API (Chrome 86+, saves to chosen folder)
+  //   2. Web Share API       (Android share sheet → Files / Drive)
+  //   3. <a download> blob   (fallback, works in most mobile browsers)
+  // ═══════════════════════════════════════════════════════════════
+
+  let mediaRecorder, audioChunks = [], audioBlob, stream;
+  let timerInterval, seconds = 0;
+  let isRecording = false;
+  let messageCount = 0;
+  let analyser, animFrame, dataArray;
+
+  const recordBtn       = document.getElementById('recordBtn');
+  const micIcon         = document.getElementById('micIcon');
+  const stopShape       = document.getElementById('stopShape');
+  const timerEl         = document.getElementById('timer');
+  const progressWrap    = document.getElementById('progressWrap');
+  const progressFill    = document.getElementById('progressFill');
+  const progressLabel   = document.getElementById('progressLabel');
+  const progressElapsed = document.getElementById('progressElapsed');
+  const progressRemain  = document.getElementById('progressRemain');
+  const waveformEl      = document.getElementById('waveform');
+  const postControls    = document.getElementById('postControls');
+  const savedMsg        = document.getElementById('savedMsg');
+  const instruction     = document.getElementById('instruction');
+  const countEl         = document.getElementById('count');
+  const countBadge      = document.getElementById('countBadge');
+  const playBtn         = document.getElementById('playBtn');
+  const playIcon        = document.getElementById('playIcon');
+  const pauseIcon       = document.getElementById('pauseIcon');
+  const playLabel       = document.getElementById('playLabel');
+  const saveBtn         = document.getElementById('saveBtn');
+  const redoBtn         = document.getElementById('redoBtn');
+  const audioEl         = document.getElementById('audioEl');
+  const toastEl         = document.getElementById('toast');
+  const bars            = Array.from({length:12}, (_,i) => document.getElementById('b'+(i+1)));
+
+  progressRemain.textContent = fmt(MAX_SECONDS) + ' remaining';
+
+  // ─── Helpers ───────────────────────────────────────────────────
+  function fmt(s) { return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+
+  function showToast(msg, duration = 3000) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    setTimeout(() => toastEl.classList.remove('show'), duration);
+  }
+
+  function buildFilename(blob) {
+    const now = new Date();
+    const pad = n => String(n).padStart(2,'0');
+    // Derive extension from the actual recorded MIME type
+    const mime = (blob && blob.type) || '';
+    const ext = mime.includes('ogg') ? '.ogg' : mime.includes('mp4') ? '.mp4' : '.webm';
+    return 'message_' +
+      now.getFullYear() + '-' + pad(now.getMonth()+1) + '-' + pad(now.getDate()) + '_' +
+      pad(now.getHours()) + '-' + pad(now.getMinutes()) + '-' + pad(now.getSeconds()) + ext;
+  }
+
+  // ─── Save recording ───────────────────────────────────────────
+  // Bubblewrap TWA runs the page in a real Chrome process, so the
+  // standard blob <a download> works correctly — files save to the
+  // Android Downloads folder with the full filename and extension.
+  // Desktop browsers get the File System Access picker where available,
+  // then Web Share, then plain blob download as fallback.
+  // ─────────────────────────────────────────────────────────────────
+
+  async function saveRecording(blob, filename) {
+
+    // Strategy 1: File System Access API (Chrome desktop / Edge)
+    if (window.showSaveFilePicker) {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: filename,
+          types: [{ description: 'Audio recording', accept: { 'audio/webm': ['.webm'], 'audio/ogg': ['.ogg'] } }],
+          startIn: 'downloads'
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        return 'picker';
+      } catch(e) {
+        if (e.name === 'AbortError') return 'aborted';
+        // SecurityError etc — fall through
+      }
+    }
+
+    // Strategy 2: Web Share API (mobile Safari, some Android browsers)
+    if (navigator.canShare) {
+      const file = new File([blob], filename, { type: blob.type || 'audio/webm' });
+      if (navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: 'Wedding Voice Message' });
+          return 'share';
+        } catch(e) {
+          if (e.name === 'AbortError') return 'aborted';
+        }
+      }
+    }
+
+    // Strategy 3: Blob URL <a download>
+    // Works in desktop browsers and Bubblewrap TWA (real Chrome process).
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+    return 'download';
+  }
+
+  // ─── Progress ──────────────────────────────────────────────────
+  function updateProgress() {
+    const remaining = MAX_SECONDS - seconds;
+    const pct = (seconds / MAX_SECONDS) * 100;
+    const warn = remaining <= 60;
+    progressFill.style.width = pct + '%';
+    progressElapsed.textContent = fmt(seconds);
+    progressRemain.textContent = fmt(remaining) + ' remaining';
+    progressFill.classList.toggle('warning', warn);
+    timerEl.classList.toggle('warning', warn);
+    progressLabel.classList.toggle('warning', warn);
+  }
+
+  // ─── UI States ─────────────────────────────────────────────────
+  function showRecordState() {
+    recordBtn.classList.add('recording');
+    micIcon.style.display = 'none';
+    stopShape.style.display = 'block';
+    timerEl.classList.add('visible');
+    progressWrap.classList.add('visible');
+    waveformEl.classList.add('visible');
+    postControls.classList.remove('visible');
+    savedMsg.classList.remove('visible');
+    instruction.textContent = 'Recording\u2026 press again to stop';
+  }
+
+  function showReviewState() {
+    recordBtn.classList.remove('recording');
+    micIcon.style.display = '';
+    stopShape.style.display = 'none';
+    waveformEl.classList.remove('visible');
+    progressWrap.classList.remove('visible');
+    timerEl.classList.remove('warning');
+    progressFill.classList.remove('warning');
+    progressLabel.classList.remove('warning');
+    bars.forEach(b => b.style.height = '4px');
+    postControls.classList.add('visible');
+    instruction.textContent = 'Listen back, then save \u2014 or record again';
+  }
+
+  function showIdleState() {
+    recordBtn.classList.remove('recording');
+    micIcon.style.display = '';
+    stopShape.style.display = 'none';
+    timerEl.classList.remove('visible');
+    timerEl.classList.remove('warning');
+    progressWrap.classList.remove('visible');
+    progressFill.classList.remove('warning');
+    progressLabel.classList.remove('warning');
+    waveformEl.classList.remove('visible');
+    postControls.classList.remove('visible');
+    savedMsg.classList.remove('visible');
+    instruction.textContent = 'Press to start recording your message';
+    seconds = 0;
+    timerEl.textContent = '0:00';
+    progressFill.style.width = '0%';
+    progressElapsed.textContent = '0:00';
+    progressRemain.textContent = fmt(MAX_SECONDS) + ' remaining';
+    audioChunks = [];
+    audioBlob = null;
+    audioEl.pause();
+    audioEl.src = '';
+    bars.forEach(b => b.style.height = '4px');
+    resetPlayBtn();
+  }
+
+  function resetPlayBtn() {
+    playIcon.style.display = '';
+    pauseIcon.style.display = 'none';
+    playLabel.textContent = 'Play back';
+  }
+
+  // ─── Waveform ──────────────────────────────────────────────────
+  function animateWave() {
+    if (!analyser) return;
+    analyser.getByteFrequencyData(dataArray);
+    bars.forEach((bar, i) => {
+      const idx = Math.floor(i * dataArray.length / bars.length / 2);
+      const h = Math.max(4, (dataArray[idx] / 255) * 36);
+      bar.style.height = h + 'px';
+    });
+    animFrame = requestAnimationFrame(animateWave);
+  }
+
+  // ─── Recording ─────────────────────────────────────────────────
+  async function startRecording() {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) {
+        const ctx = new AudioCtx();
+        analyser = ctx.createAnalyser();
+        analyser.fftSize = 64;
+        dataArray = new Uint8Array(analyser.frequencyBinCount);
+        ctx.createMediaStreamSource(stream).connect(analyser);
+      }
+      audioChunks = [];
+
+      // Pick best supported MIME type for Android
+      const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/ogg', '']
+        .find(m => m === '' || MediaRecorder.isTypeSupported(m));
+
+      mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+      mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+      mediaRecorder.onstop = () => {
+        audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+        audioEl.src = URL.createObjectURL(audioBlob);
+        showReviewState();
+      };
+      mediaRecorder.start(100);
+      isRecording = true;
+      seconds = 0;
+      timerEl.textContent = '0:00';
+      progressFill.style.width = '0%';
+      showRecordState();
+      updateProgress();
+      timerInterval = setInterval(() => {
+        seconds++;
+        timerEl.textContent = fmt(seconds);
+        updateProgress();
+        if (seconds >= MAX_SECONDS) stopRecording();
+      }, 1000);
+      animateWave();
+    } catch(e) {
+      instruction.textContent = 'Microphone access needed \u2014 please allow it and try again';
+    }
+  }
+
+  function stopRecording() {
+    if (!isRecording) return;
+    isRecording = false;
+    clearInterval(timerInterval);
+    cancelAnimationFrame(animFrame);
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+  }
+
+  // ─── Event Listeners ───────────────────────────────────────────
+  recordBtn.addEventListener('click', () => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      audioEl.pause();
+      resetPlayBtn();
+      startRecording();
+    }
+  });
+
+  playBtn.addEventListener('click', () => {
+    if (!audioEl.src) return;
+    if (audioEl.paused) {
+      audioEl.play();
+      playIcon.style.display = 'none';
+      pauseIcon.style.display = '';
+      playLabel.textContent = 'Pause';
+    } else {
+      audioEl.pause();
+      resetPlayBtn();
+    }
+  });
+
+  audioEl.addEventListener('ended', resetPlayBtn);
+
+  saveBtn.addEventListener('click', async () => {
+    if (!audioBlob) return;
+    saveBtn.disabled = true;
+
+    const filename = buildFilename(audioBlob);
+    const result = await saveRecording(audioBlob, filename);
+
+    saveBtn.disabled = false;
+
+    if (result === 'aborted') {
+      showToast('Save cancelled');
+      return;
+    }
+
+    // Success
+    messageCount++;
+    countEl.textContent = messageCount;
+    countBadge.style.display = '';
+    postControls.classList.remove('visible');
+    timerEl.classList.remove('visible');
+    savedMsg.classList.add('visible');
+    instruction.textContent = 'Press to record another message';
+    audioChunks = [];
+    audioBlob = null;
+    resetPlayBtn();
+
+    if (result === 'share') showToast('Shared successfully ✦');
+    else if (result === 'picker') showToast('Saved to Downloads ✦');
+    else showToast('Saved to Downloads ✦');
+  });
+
+  redoBtn.addEventListener('click', showIdleState);
+
+  // ─── PWA Install Prompt ────────────────────────────────────────
+  let deferredInstallPrompt = null;
+  const installBanner = document.getElementById('installBanner');
+  const bannerInstall = document.getElementById('bannerInstall');
+  const bannerDismiss = document.getElementById('bannerDismiss');
+
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    // Show install banner after a short delay
+    setTimeout(() => installBanner.classList.add('show'), 2000);
+  });
+
+  bannerInstall.addEventListener('click', async () => {
+    installBanner.classList.remove('show');
+    if (deferredInstallPrompt) {
+      deferredInstallPrompt.prompt();
+      const { outcome } = await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+    }
+  });
+
+  bannerDismiss.addEventListener('click', () => {
+    installBanner.classList.remove('show');
+  });
+
+  window.addEventListener('appinstalled', () => {
+    installBanner.classList.remove('show');
+    showToast('App installed ✦');
+  });
+
+  // ─── Service Worker ────────────────────────────────────────────
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    });
+  }
+</script>
+</body>
+</html>
